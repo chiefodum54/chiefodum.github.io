@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Battle Zone</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111;color:#fff;font-family:Arial,sans-serif;touch-action:none}
+canvas{display:block;width:100%;height:100%;background:#47784a}
+button{font:inherit}
+#menu,#result{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(rgba(5,10,8,.25),rgba(5,10,8,.78));z-index:20}
+.card{width:min(92%,520px);padding:25px;border-radius:22px;background:rgba(7,15,12,.94);box-shadow:0 15px 50px #000;text-align:center}
+h1{font-size:46px;margin:0 0 5px}
+.sub{opacity:.8;margin:0 0 20px}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.map{min-width:140px;padding:14px;border:2px solid #44554a;border-radius:14px;background:#17231c;color:#fff}
+.map.active{border-color:#31d66d;background:#163e27}
+.primary{margin-top:18px;width:100%;padding:15px;border:0;border-radius:14px;background:#25c85a;color:#fff;font-weight:800;font-size:20px}
+#hud{position:fixed;z-index:5;top:9px;left:9px;right:9px;display:flex;gap:7px;justify-content:space-between;pointer-events:none}
+.pill{background:rgba(0,0,0,.55);padding:8px 11px;border-radius:12px;font-weight:800;font-size:14px}
+#tip{position:fixed;z-index:5;top:57px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.45);padding:5px 9px;border-radius:9px;font-size:11px;pointer-events:none}
+.control{position:fixed;z-index:10;display:none}
+#joy{left:18px;bottom:28px;width:126px;height:126px;border:3px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);border-radius:50%}
+#knob{position:absolute;width:48px;height:48px;left:36px;top:36px;border-radius:50%;background:rgba(255,255,255,.6)}
+#fire{right:24px;bottom:38px;width:88px;height:88px;border-radius:50%;border:3px solid rgba(255,255,255,.45);background:#e8484f;color:#fff;font-weight:900;font-size:17px}
+#aim{right:130px;bottom:48px;width:82px;height:82px;border:3px solid rgba(255,255,255,.25);border-radius:50%;background:rgba(255,255,255,.1)}
+#aimDot{position:absolute;width:34px;height:34px;left:21px;top:21px;border-radius:50%;background:rgba(255,255,255,.5)}
+@media(pointer:coarse){.control{display:block}}
+@media(pointer:fine){#tip:after{content:"  WASD/Arrows • Mouse aim • Click to shoot"}}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div class="pill">❤️ <span id="hp">100</span></div>
+  <div class="pill">👥 <span id="alive">12</span></div>
+  <div class="pill">🎯 <span id="score">0</span></div>
+  <div class="pill">🗺️ <span id="mapName">Island</span></div>
+</div>
+<div id="tip">Survive • loot • defeat every opponent</div>
+
+<div id="menu">
+  <div class="card">
+    <h1>⚔️ Battle Zone</h1>
+    <p class="sub">A fast mobile battle-royale prototype</p>
+    <p>Choose your map</p>
+    <div class="row">
+      <button class="map active" id="islandBtn">🏝️ Island</button>
+      <button class="map" id="desertBtn">🏜️ Desert</button>
+    </div>
+    <button class="primary" id="startBtn">START BATTLE</button>
+  </div>
+</div>
+
+<div id="result" style="display:none">
+  <div class="card">
+    <h1 id="resultTitle">Victory!</h1>
+    <p id="resultText"></p>
+    <button class="primary" id="againBtn">PLAY AGAIN</button>
+  </div>
+</div>
+
+<div id="joy" class="control"><div id="knob"></div></div>
+<div id="aim" class="control"><div id="aimDot"></div></div>
+<button id="fire" class="control">FIRE</button>
+
+<script>
+const c=document.getElementById('game'),ctx=c.getContext('2d');
+let W=innerWidth,H=innerHeight,dpr=1;
+function resize(){dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;c.width=W*dpr;c.height=H*dpr;c.style.width=W+'px';c.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0)}
+addEventListener('resize',resize);resize();
+
+const maps={
+ island:{name:'Island',w:2600,h:1800,ground:'#3e7745',zone:720},
+ desert:{name:'Desert',w:2600,h:1800,ground:'#b89454',zone:720}
+};
+let map=maps.island,game=false,last=0,score=0,selected='island';
+let p,bots=[],bullets=[],loot=[],buildings=[],zone,cam={x:0,y:0},keys={},mouse={x:W/2,y:H/2,down:false};
+let move={x:0,y:0},aim={x:1,y:0},joyActive=false,aimActive=false;
+
+const $=id=>document.getElementById(id);
+$('islandBtn').onclick=()=>{selected='island';$('islandBtn').classList.add('active');$('desertBtn').classList.remove('active')};
+$('desertBtn').onclick=()=>{selected='desert';$('desertBtn').classList.add('active');$('islandBtn').classList.remove('active')};
+$('startBtn').onclick=start;
+$('againBtn').onclick=()=>{$('result').style.display='none';start()};
+
+function rnd(a,b){return a+Math.random()*(b-a)}
+function d(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function start(){
+ map=maps[selected]; score=0; bullets=[];loot=[];bots=[];buildings=[];
+ p={x:map.w/2,y:map.h/2,r:18,hp:100,speed:250,cool:0,weapon:'Rifle',ammo:90};
+ zone={x:map.w/2,y:map.h/2,r:map.zone,target:map.zone,t:0};
+ makeBuildings();
+ makeLoot();
+ for(let i=0;i<11;i++) spawnBot(i);
+ $('mapName').textContent=map.name;
+ $('menu').style.display='none';game=true;
+}
+function freeSpot(){
+ for(let tries=0;tries<100;tries++){
+  let x=rnd(100,map.w-100),y=rnd(100,map.h-100);
+  if(Math.hypot(x-map.w/2,y-map.h/2)>230 && !buildings.some(b=>x>b.x-10&&x<b.x+b.w+10&&y>b.y-10&&y<b.y+b.h+10)) return {x,y};
+ }
+ return {x:rnd(100,map.w-100),y:rnd(100,map.h-100)};
+}
+function makeBuildings(){
+ for(let i=0;i<20;i++){
+  let s=freeSpot(),w=rnd(70,170),h=rnd(60,140);
+  buildings.push({x:s.x,y:s.y,w,h});
+ }
+}
+function makeLoot(){
+ for(let i=0;i<18;i++){
+  let s=freeSpot();loot.push({x:s.x,y:s.y,type:Math.random()<.65?'ammo':'med',taken:false});
+ }
+}
+function spawnBot(i){
+ let s=freeSpot();
+ bots.push({id:i,x:s.x,y:s.y,r:17,hp:70,speed:rnd(65,105),cool:rnd(.2,1.5),dir:rnd(0,6.28),state:'roam'});
+}
+function hitBuilding(x,y,r=0){
+ return buildings.some(b=>x+r>b.x&&x-r<b.x+b.w&&y+r>b.y&&y-r<b.y+b.h);
+}
+function moveEntity(o,dx,dy,dt){
+ let nx=o.x+dx*dt,ny=o.y+dy*dt;
+ if(nx>20&&nx<map.w-20&&!hitBuilding(nx,o.y,o.r))o.x=nx;
+ if(ny>20&&ny<map.h-20&&!hitBuilding(o.x,ny,o.r))o.y=ny;
+}
+function nearestBot(){
+ let best=null,bd=1e9;
+ for(const b of bots){let z=d(p,b);if(z<bd){bd=z;best=b}}
+ return best;
+}
+function shoot(){
+ if(!game||p.cool>0||p.ammo<=0)return;
+ let target=nearestBot();
+ let tx=p.x+aim.x*500,ty=p.y+aim.y*500;
+ if(target&&d(p,target)<650){tx=target.x;ty=target.y}
+ let dx=tx-p.x,dy=ty-p.y,len=Math.hypot(dx,dy)||1;
+ bullets.push({x:p.x,y:p.y,vx:dx/len*850,vy:dy/len*850,life:1.1});
+ p.cool=.16;p.ammo--;
+}
+function update(dt){
+ if(!game)return;
+ p.cool=Math.max(0,p.cool-dt);
+ let mx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);
+ let my=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);
+ if(joyActive){mx=move.x;my=move.y}
+ if(mx||my){let m=Math.hypot(mx,my);moveEntity(p,mx/m*p.speed,my/m*p.speed,dt)}
+ if(mouse.down)shoot();
+
+ for(const l of loot)if(!l.taken&&d(p,l)<30){
+  l.taken=true;
+  if(l.type==='med')p.hp=Math.min(100,p.hp+25);else p.ammo+=35;
+ }
+ zone.t+=dt;
+ if(zone.t>18){zone.t=0;zone.target=Math.max(160,zone.target-90)}
+ zone.r+=(zone.target-zone.r)*dt*.1;
+ if(d(p,zone)>zone.r)p.hp-=10*dt;
+
+ for(const b of bullets){
+  b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
+  if(hitBuilding(b.x,b.y,4))b.life=0;
+  for(const e of bots)if(b.life>0&&!e.dead&&d(b,e)<e.r+5){
+   e.hp-=35;b.life=0;
+   if(e.hp<=0){e.dead=true;score+=100;loot.push({x:e.x,y:e.y,type:Math.random()<.5?'ammo':'med',taken:false})}
+  }
+ }
+ bullets=bullets.filter(b=>b.life>0&&b.x>0&&b.y>0&&b.x<map.w&&b.y<map.h);
+ bots=bots.filter(b=>!b.dead);
+
+ for(const e of bots){
+  e.cool-=dt;let dist=d(e,p);
+  if(dist<560){
+   let dx=p.x-e.x,dy=p.y-e.y,len=Math.hypot(dx,dy)||1;
+   if(dist>210)moveEntity(e,dx/len*e.speed,dy/len*e.speed,dt);
+   else if(dist<140)moveEntity(e,-dx/len*e.speed,-dy/len*e.speed,dt);
+   if(dist<330&&e.cool<=0){p.hp-=6;e.cool=.8}
+  }else{
+   e.dir+=rnd(-1,1)*dt;moveEntity(e,Math.cos(e.dir)*e.speed*.35,Math.sin(e.dir)*e.speed*.35,dt);
+  }
+ }
+ if(p.hp<=0){finish(false);return}
+ if(bots.length===0){finish(true);return}
+ cam.x=Math.max(0,Math.min(map.w-W,p.x-W/2));cam.y=Math.max(0,Math.min(map.h-H,p.y-H/2));
+ $('hp').textContent=Math.max(0,Math.ceil(p.hp));$('alive').textContent=bots.length+1;$('score').textContent=score;
+}
+function finish(win){
+ game=false;
+ $('resultTitle').textContent=win?'🏆 VICTORY!':'💀 DEFEATED';
+ $('resultText').textContent=win?`You cleared ${map.name} and scored ${score} points.`:`You scored ${score} points on ${map.name}.`;
+ $('result').style.display='flex';
+}
+function draw(){
+ ctx.clearRect(0,0,W,H);ctx.save();ctx.translate(-cam.x,-cam.y);
+ ctx.fillStyle=map.ground;ctx.fillRect(0,0,map.w,map.h);
+ ctx.strokeStyle='rgba(255,255,255,.07)';ctx.lineWidth=1;
+ for(let x=0;x<map.w;x+=100){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,map.h);ctx.stroke()}
+ for(let y=0;y<map.h;y+=100){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(map.w,y);ctx.stroke()}
+ // buildings
+ for(const b of buildings){
+  ctx.fillStyle=map===maps.desert?'#795e3c':'#555f55';ctx.fillRect(b.x,b.y,b.w,b.h);
+  ctx.strokeStyle='rgba(255,255,255,.2)';ctx.strokeRect(b.x,b.y,b.w,b.h);
+  ctx.fillStyle='rgba(255,255,255,.25)';
+  for(let xx=b.x+15;xx<b.x+b.w-10;xx+=35)ctx.fillRect(xx,b.y+15,15,12);
+ }
+ // safe zone
+ ctx.fillStyle='rgba(70,120,255,.15)';ctx.beginPath();ctx.rect(0,0,map.w,map.h);ctx.arc(zone.x,zone.y,zone.r,0,Math.PI*2,true);ctx.fill('evenodd');
+ ctx.strokeStyle='#62a5ff';ctx.lineWidth=7;ctx.beginPath();ctx.arc(zone.x,zone.y,zone.r,0,Math.PI*2);ctx.stroke();
+ // loot
+ for(const l of loot)if(!l.taken){ctx.fillStyle=l.type==='med'?'#ff5555':'#ffd447';ctx.fillRect(l.x-8,l.y-8,16,16)}
+ // enemies
+ for(const e of bots){
+  ctx.fillStyle='#e64a4a';ctx.beginPath();ctx.arc(e.x,e.y,e.r,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#222';ctx.fillRect(e.x-9,e.y-4,18,5);
+  ctx.fillStyle='#52e26e';ctx.fillRect(e.x-17,e.y-27,34,4);ctx.fillStyle='#111';ctx.fillRect(e.x-17,e.y-27,34*(e.hp/70),4);
+ }
+ // bullets
+ ctx.fillStyle='#ffe05a';for(const b of bullets){ctx.beginPath();ctx.arc(b.x,b.y,4,0,Math.PI*2);ctx.fill()}
+ // player
+ ctx.fillStyle='#31a7ff';ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+ ctx.strokeStyle='#fff';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+aim.x*32,p.y+aim.y*32);ctx.stroke();
+ ctx.restore();
+}
+function loop(t){let dt=Math.min(.035,(t-last)/1000||0);last=t;update(dt);draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+
+// Keyboard/mouse
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key===' ')shoot()});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+c.addEventListener('pointermove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;if(game){let dx=e.clientX-W/2,dy=e.clientY-H/2,len=Math.hypot(dx,dy)||1;aim.x=dx/len;aim.y=dy/len}});
+c.addEventListener('pointerdown',e=>{mouse.down=true;mouse.x=e.clientX;mouse.y=e.clientY;let dx=e.clientX-W/2,dy=e.clientY-H/2,len=Math.hypot(dx,dy)||1;aim.x=dx/len;aim.y=dy/len;shoot()});
+addEventListener('pointerup',()=>mouse.down=false);
+
+// Mobile movement joystick
+const joy=$('joy'),knob=$('knob');
+function joyMove(e){
+ const r=joy.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2),m=Math.min(42,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
+ move.x=Math.cos(a)*(m/42);move.y=Math.sin(a)*(m/42);knob.style.transform=`translate(${Math.cos(a)*m}px,${Math.sin(a)*m}px)`;
+}
+joy.addEventListener('pointerdown',e=>{joyActive=true;joy.setPointerCapture(e.pointerId);joyMove(e)});
+joy.addEventListener('pointermove',e=>{if(joyActive)joyMove(e)});
+joy.addEventListener('pointerup',()=>{joyActive=false;move.x=move.y=0;knob.style.transform='translate(0,0)'});
+
+// Mobile aim joystick
+const aimEl=$('aim'),aimDot=$('aimDot');
+function aimMove(e){
+ const r=aimEl.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2),m=Math.min(27,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
+ if(m>3){aim.x=Math.cos(a);aim.y=Math.sin(a)}
+ aimDot.style.transform=`translate(${Math.cos(a)*m}px,${Math.sin(a)*m}px)`;
+}
+aimEl.addEventListener('pointerdown',e=>{aimActive=true;aimEl.setPointerCapture(e.pointerId);aimMove(e)});
+aimEl.addEventListener('pointermove',e=>{if(aimActive)aimMove(e)});
+aimEl.addEventListener('pointerup',()=>{aimActive=false;aimDot.style.transform='translate(0,0)'});
+$('fire').addEventListener('pointerdown',e=>{e.preventDefault();shoot()});
+</script>
+</body>
+  </html>
