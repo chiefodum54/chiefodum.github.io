@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Battle Zone - Browser Game</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#10151b;font-family:Arial,sans-serif;color:#fff;touch-action:none}
+  canvas{display:block;width:100%;height:100%;background:#315b35}
+  #hud{position:fixed;top:10px;left:10px;right:10px;display:flex;gap:10px;justify-content:space-between;pointer-events:none;font-weight:bold;text-shadow:0 2px 3px #000}
+  .box{background:rgba(0,0,0,.5);padding:8px 12px;border-radius:10px}
+  #message{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  #panel{pointer-events:auto;background:rgba(0,0,0,.78);padding:28px;border-radius:18px;text-align:center;max-width:90%;display:none}
+  #panel h1{margin:0 0 10px}
+  button{border:0;border-radius:12px;padding:12px 20px;font-weight:bold;font-size:16px;background:#20c55a;color:white}
+  #help{position:fixed;bottom:10px;left:10px;font-size:12px;background:rgba(0,0,0,.45);padding:7px 10px;border-radius:8px}
+  #stick{position:fixed;left:18px;bottom:35px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.13);border:2px solid rgba(255,255,255,.25);display:none}
+  #knob{position:absolute;left:35px;top:35px;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.55)}
+  #fire{position:fixed;right:25px;bottom:48px;width:82px;height:82px;border-radius:50%;background:#e84b4b;display:none;border:3px solid rgba(255,255,255,.4)}
+  @media (pointer:coarse){#stick,#fire{display:block}#help{display:none}}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+  <div class="box">❤️ <span id="hp">100</span></div>
+  <div class="box">🎯 Enemies: <span id="enemies">0</span></div>
+  <div class="box">⭐ Score: <span id="score">0</span></div>
+</div>
+<div id="message"><div id="panel">
+  <h1 id="title">Battle Zone</h1>
+  <p id="desc">Survive the shrinking zone and defeat the bots.</p>
+  <button id="start">Start Game</button>
+</div></div>
+<div id="stick"><div id="knob"></div></div>
+<button id="fire">FIRE</button>
+<div id="help">WASD / Arrow keys to move • Mouse/touch to aim • Click/tap FIRE to shoot</div>
+
+<script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const hpEl=document.getElementById('hp'), enemyEl=document.getElementById('enemies'), scoreEl=document.getElementById('score');
+let W,H,dpr,game=false,last=0,score=0,keys={},mouse={x:0,y:0,down:false},bullets=[],bots=[],particles=[];
+let player,zone,world={w:2200,h:1400},cam={x:0,y:0};
+
+function resize(){dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0)}
+addEventListener('resize',resize);resize();
+
+function rand(a,b){return a+Math.random()*(b-a)}
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function reset(){
+  player={x:world.w/2,y:world.h/2,r:18,hp:100,speed:260,cool:0};
+  zone={x:world.w/2,y:world.h/2,r:620,target:620,timer:0};
+  bullets=[];bots=[];particles=[];score=0;
+  for(let i=0;i<12;i++){
+    let a=rand(0,Math.PI*2),r=rand(380,850);
+    bots.push({x:world.w/2+Math.cos(a)*r,y:world.h/2+Math.sin(a)*r,r:17,hp:40,speed:rand(55,90),cool:rand(.2,1.2),dir:rand(0,6.28)});
+  }
+  game=true;document.getElementById('panel').style.display='none';
+}
+function end(win){
+  game=false;
+  document.getElementById('title').textContent=win?'🏆 Victory!':'Game Over';
+  document.getElementById('desc').textContent=win?`You survived the Battle Zone with ${score} points.`:'The zone got you. Try another round!';
+  document.getElementById('start').textContent='Play Again';
+  document.getElementById('panel').style.display='block';
+}
+document.getElementById('start').onclick=reset;
+
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key===' '){e.preventDefault();shoot()}});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+canvas.addEventListener('pointermove',e=>{mouse.x=e.clientX;mouse.y=e.clientY});
+canvas.addEventListener('pointerdown',e=>{mouse.down=true;mouse.x=e.clientX;mouse.y=e.clientY;shoot()});
+addEventListener('pointerup',()=>mouse.down=false);
+
+function shoot(){
+ if(!game||player.cool>0)return;
+ let sx=mouse.x+cam.x,sy=mouse.y+cam.y;
+ if(!mouse.x&&!mouse.y){sx=player.x+1;sy=player.y}
+ let dx=sx-player.x,dy=sy-player.y,d=Math.hypot(dx,dy)||1;
+ bullets.push({x:player.x,y:player.y,vx:dx/d*720,vy:dy/d*720,r:5,life:1.2});
+ player.cool=.22;
+}
+let stick={active:false,cx:0,cy:0};
+const stickEl=document.getElementById('stick'),knob=document.getElementById('knob');
+stickEl.addEventListener('pointerdown',e=>{stick.active=true;stickEl.setPointerCapture(e.pointerId);moveStick(e)});
+stickEl.addEventListener('pointermove',e=>{if(stick.active)moveStick(e)});
+stickEl.addEventListener('pointerup',()=>{stick.active=false;knob.style.transform='translate(0,0)'});
+function moveStick(e){
+ const r=stickEl.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2),m=Math.min(38,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
+ knob.style.transform=`translate(${Math.cos(a)*m}px,${Math.sin(a)*m}px)`;
+ stick.dx=Math.cos(a)*(m/38);stick.dy=Math.sin(a)*(m/38);
+}
+document.getElementById('fire').addEventListener('pointerdown',e=>{e.preventDefault();shoot()});
+
+function update(dt){
+ if(!game)return;
+ player.cool=Math.max(0,player.cool-dt);
+ let mx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);
+ let my=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);
+ if(stick.active){mx=stick.dx;my=stick.dy}
+ let m=Math.hypot(mx,my)||1;
+ if(mx||my){player.x+=mx/m*player.speed*dt;player.y+=my/m*player.speed*dt}
+ player.x=Math.max(20,Math.min(world.w-20,player.x));player.y=Math.max(20,Math.min(world.h-20,player.y));
+ if(mouse.down)shoot();
+
+ zone.timer+=dt;
+ if(zone.timer>12){zone.timer=0;zone.target=Math.max(150,zone.target-70)}
+ zone.r += (zone.target-zone.r)*dt*.12;
+ if(dist(player,zone)>zone.r){player.hp-=12*dt}
+
+ for(const b of bullets){
+   b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
+   for(const bot of bots) if(b.life>0&&dist(b,bot)<b.r+bot.r){bot.hp-=25;b.life=0;burst(bot.x,bot.y);if(bot.hp<=0){score+=100;bot.dead=true}}
+ }
+ bullets=bullets.filter(b=>b.life>0&&b.x>0&&b.y>0&&b.x<world.w&&b.y<world.h);
+ bots=bots.filter(b=>!b.dead);
+
+ for(const bot of bots){
+   bot.cool-=dt;
+   let d=dist(bot,player);
+   if(d<500){
+     let dx=player.x-bot.x,dy=player.y-bot.y,dd=d||1;
+     bot.x+=dx/dd*bot.speed*dt;bot.y+=dy/dd*bot.speed*dt;
+     if(d<260&&bot.cool<=0){player.hp-=7;bot.cool=.8;burst(player.x,player.y)}
+   }else{
+     bot.dir+=rand(-.8,.8)*dt;bot.x+=Math.cos(bot.dir)*bot.speed*.35*dt;bot.y+=Math.sin(bot.dir)*bot.speed*.35*dt;
+   }
+   bot.x=Math.max(20,Math.min(world.w-20,bot.x));bot.y=Math.max(20,Math.min(world.h-20,bot.y));
+ }
+ for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt}
+ particles=particles.filter(p=>p.life>0);
+ if(player.hp<=0)end(false);
+ if(bots.length===0)end(true);
+ hpEl.textContent=Math.max(0,Math.ceil(player.hp));enemyEl.textContent=bots.length;scoreEl.textContent=score;
+ cam.x=Math.max(0,Math.min(world.w-W,player.x-W/2));cam.y=Math.max(0,Math.min(world.h-H,player.y-H/2));
+}
+
+function burst(x,y){for(let i=0;i<8;i++)particles.push({x,y,vx:rand(-100,100),vy:rand(-100,100),life:.4})}
+function draw(){
+ ctx.clearRect(0,0,W,H);ctx.save();ctx.translate(-cam.x,-cam.y);
+ ctx.fillStyle='#315b35';ctx.fillRect(0,0,world.w,world.h);
+ // terrain grid
+ ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
+ for(let x=0;x<world.w;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,world.h);ctx.stroke()}
+ for(let y=0;y<world.h;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(world.w,y);ctx.stroke()}
+ // zone
+ ctx.fillStyle='rgba(50,90,220,.18)';ctx.beginPath();ctx.rect(0,0,world.w,world.h);ctx.arc(zone.x,zone.y,zone.r,0,Math.PI*2,true);ctx.fill('evenodd');
+ ctx.strokeStyle='rgba(90,160,255,.9)';ctx.lineWidth=7;ctx.beginPath();ctx.arc(zone.x,zone.y,zone.r,0,Math.PI*2);ctx.stroke();
+ // bots
+ for(const b of bots){ctx.fillStyle='#d94a4a';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#111';ctx.fillRect(b.x-9,b.y-4,18,5)}
+ // bullets
+ ctx.fillStyle='#ffd84a';for(const b of bullets){ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill()}
+ // player
+ ctx.fillStyle='#39a7ff';ctx.beginPath();ctx.arc(player.x,player.y,player.r,0,Math.PI*2);ctx.fill();
+ let ax=mouse.x+cam.x,ay=mouse.y+cam.y,ad=Math.atan2(ay-player.y,ax-player.x);
+ ctx.strokeStyle='#fff';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(player.x,player.y);ctx.lineTo(player.x+Math.cos(ad)*30,player.y+Math.sin(ad)*30);ctx.stroke();
+ for(const p of particles){ctx.fillStyle=`rgba(255,210,80,${Math.max(0,p.life/.4)})`;ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill()}
+ ctx.restore();
+}
+function loop(t){let dt=Math.min(.033,(t-last)/1000||0);last=t;update(dt);draw();requestAnimationFrame(loop)}
+document.getElementById('panel').style.display='block';
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
