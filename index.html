@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>For Blessing ❤️</title>
+
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at center, #251900 0%, #090909 45%, #000000 100%);
+    color: white;
+    font-family: Georgia, "Times New Roman", serif;
+    overflow-x: hidden;
+}
+
+/* GOLD PARTICLES */
+#particles {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: #d4af37;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #d4af37;
+    animation: floatUp linear infinite;
+}
+
+@keyframes floatUp {
+    from {
+        transform: translateY(110vh);
+        opacity: 0;
+    }
+
+    20% {
+        opacity: 0.8;
+    }
+
+    80% {
+        opacity: 0.8;
+    }
+
+    to {
+        transform: translateY(-10vh);
+        opacity: 0;
+    }
+}
+
+/* GENERAL SCREEN */
+.screen {
+    position: relative;
+    z-index: 2;
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    padding: 20px;
+    text-align: center;
+}
+
+/* CARD */
+.card {
+    width: 100%;
+    max-width: 700px;
+
+    padding: 45px 25px;
+
+    background: rgba(0, 0, 0, 0.72);
+
+    border: 1px solid rgba(212, 175, 55, 0.7);
+    border-radius: 25px;
+
+    box-shadow:
+        0 0 45px rgba(212, 175, 55, 0.15),
+        inset 0 0 30px rgba(212, 175, 55, 0.05);
+
+    backdrop-filter: blur(8px);
+}
+
+/* TEXT */
+.gold {
+    color: #d4af37;
+
+    text-shadow:
+        0 0 10px rgba(212,175,55,0.5),
+        0 0 25px rgba(212,175,55,0.2);
+}
+
+/* LOGIN SCREEN */
+#welcome h1 {
+    font-size: clamp(32px, 8vw, 55px);
+    margin-bottom: 20px;
+}
+
+#welcome p {
+    font-size: 18px;
+    line-height: 1.7;
+    margin: 10px;
+}
+
+input {
+    width: 90%;
+    max-width: 370px;
+
+    padding: 16px;
+
+    margin-top: 20px;
+
+    border-radius: 35px;
+
+    border: 1px solid #d4af37;
+
+    background: #111;
+
+    color: white;
+
+    text-align: center;
+
+    font-size: 17px;
+
+    outline: none;
+}
+
+input:focus {
+    box-shadow: 0 0 20px rgba(212,175,55,0.4);
+}
+
+/* BUTTON */
+button {
+    margin-top: 18px;
+
+    padding: 16px 35px;
+
+    border: 2px solid #d4af37;
+
+    border-radius: 50px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #d4af37,
+            #8c6b16
+        );
+
+    color: #050505;
+
+    font-size: 16px;
+
+    font-weight: bold;
+
+    letter-spacing: 1px;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 0 25px rgba(212,175,55,0.4);
+
+    transition: 0.3s;
+}
+
+button:hover {
+    transform: scale(1.06);
+
+    box-shadow:
+        0 0 40px rgba(212,175,55,0.7);
+}
+
+/* ERROR */
+#error {
+    display: none;
+
+    margin-top: 15px;
+
+    color: #ff4444;
+
+    font-size: 15px;
+}
+
+/* LOVE PAGE */
+#love {
+    display: none;
+}
+
+/* TITLE */
+#love h1 {
+    font-size: clamp(30px, 7vw, 55px);
+
+    margin-bottom: 10px;
+}
+
+/* HEART AREA */
+.heart-area {
+    height: 280px;
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: center;
+}
+
+/* HEART */
+.heart {
+    position: relative;
+
+    width: 120px;
+    height: 120px;
+
+    background: #e00000;
+
+    transform: rotate(-45deg);
+
+    box-shadow:
+        0 0 25px #ff0000,
+        0 0 60px rgba(255,0,0,0.7),
+        0 0 100px rgba(255,0,0,0.3);
+
+    animation: heartbeat 1.15s infinite;
+}
+
+.heart::before,
+.heart::after {
+    content: "";
+
+    position: absolute;
+
+    width: 120px;
+    height: 120px;
+
+    background: #e00000;
+
+    border-radius: 50%;
+}
+
+.heart::before {
+    top: -60px;
+    left: 0;
+}
+
+.heart::after {
+    top: 0;
+    left: 60px;
+}
+
+@keyframes heartbeat {
+
+    0%, 100% {
+        transform: rotate(-45deg) scale(1);
+    }
+
+    15% {
+        transform: rotate(-45deg) scale(1.18);
+    }
+
+    30% {
+        transform: rotate(-45deg) scale(1);
+    }
+
+    45% {
+        transform: rotate(-45deg) scale(1.12);
+    }
+
+    60% {
+        transform: rotate(-45deg) scale(1);
+    }
+}
+
+/* MESSAGE */
+.message {
+    animation: messageAppear 1.5s ease;
+}
+
+.message h2 {
+    font-size: 30px;
+
+    margin-bottom: 25px;
+}
+
+.message p {
+    font-size: 18px;
+
+    line-height: 1.85;
+
+    margin-bottom: 18px;
+}
+
+.signature {
+    color: #d4af37;
+
+    font-size: 22px !important;
+
+    margin-top: 25px;
+}
+
+@keyframes messageAppear {
+
+    from {
+        opacity: 0;
+        transform: translateY(35px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* FLOATING HEARTS */
+.floating-heart {
+    position: fixed;
+
+    bottom: -40px;
+
+    color: red;
+
+    font-size: 25px;
+
+    pointer-events: none;
+
+    z-index: 20;
+
+    animation: riseHeart 4.5s linear forwards;
+}
+
+@keyframes riseHeart {
+
+    from {
+        transform:
+            translateY(0)
+            scale(0.7);
+
+        opacity: 1;
+    }
+
+    to {
+        transform:
+            translateY(-110vh)
+            scale(1.5);
+
+        opacity: 0;
+    }
+}
+
+/* FOOTER */
+.footer {
+    margin-top: 30px;
+
+    color: #777;
+
+    font-size: 12px;
+}
+
+/* MOBILE */
+@media (max-width: 600px) {
+
+    .card {
+        padding: 35px 18px;
+    }
+
+    .heart-area {
+        height: 230px;
+    }
+
+    .heart {
+        width: 95px;
+        height: 95px;
+    }
+
+    .heart::before,
+    .heart::after {
+        width: 95px;
+        height: 95px;
+    }
+
+    .heart::before {
+        top: -47px;
+    }
+
+    .heart::after {
+        left: 47px;
+    }
+
+    .message p {
+        font-size: 16px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<!-- GOLD PARTICLES -->
+<div id="particles"></div>
+
+
+<!-- ========================= -->
+<!-- WELCOME SCREEN -->
+<!-- ========================= -->
+
+<div id="welcome" class="screen">
+
+    <div class="card">
+
+        <h1 class="gold">
+            A Little Surprise ❤️
+        </h1>
+
+        <p>
+            Someone special made this little surprise
+            especially for you.
+        </p>
+
+        <p class="gold">
+            Enter your name to open it.
+        </p>
+
+        <input
+            type="text"
+            id="name"
+            placeholder="Enter your name"
+            autocomplete="off"
+        >
+
+        <br>
+
+        <button onclick="openSurprise()">
+            OPEN MY SURPRISE ❤️
+        </button>
+
+        <div id="error">
+            Please enter the name Blessing.
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ========================= -->
+<!-- LOVE PAGE -->
+<!-- ========================= -->
+
+<div id="love" class="screen">
+
+    <div class="card">
+
+        <h1 class="gold">
+            My Best Girlfriend Ever ❤️
+        </h1>
+
+
+        <!-- ANIMATED HEART -->
+
+        <div class="heart-area">
+
+            <div class="heart"></div>
+
+        </div>
+
+
+        <!-- MESSAGE -->
+
+        <div class="message">
+
+            <h2 class="gold">
+                For Blessing Nkire ✨
+            </h2>
+
+            <p>
+                Blessing, you are someone very special
+                to me. Your presence brings happiness,
+                warmth, and beautiful memories into my life.
+            </p>
+
+            <p>
+                I made this little surprise especially
+                for you because I want you to know how
+                much I care about you and appreciate
+                having you in my life. ❤️
+            </p>
+
+            <p>
+                Every smile, every conversation, and
+                every beautiful moment we share means
+                something to me.
+            </p>
+
+            <p>
+                You are truly special to me, Blessing,
+                and I hope this little surprise puts
+                a beautiful smile on your face. ❤️
+            </p>
+
+            <p class="signature">
+                With all my love ❤️
+                <br>
+                Chief Odum James
+            </p>
+
+        </div>
+
+
+        <div class="footer">
+            Made specially for Blessing Nkire ❤️
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+/* ================================= */
+/* CREATE GOLD PARTICLES */
+/* ================================= */
+
+const particleContainer =
+    document.getElementById("particles");
+
+for (let i = 0; i < 60; i++) {
+
+    const particle =
+        document.createElement("div");
+
+    particle.className = "particle";
+
+    particle.style.left =
+        Math.random() * 100 + "%";
+
+    particle.style.animationDuration =
+        (5 + Math.random() * 8) + "s";
+
+    particle.style.animationDelay =
+        Math.random() * 8 + "s";
+
+    particleContainer.appendChild(particle);
+}
+
+
+/* ================================= */
+/* OPEN THE SURPRISE */
+/* ================================= */
+
+function openSurprise() {
+
+    const name =
+        document
+        .getElementById("name")
+        .value
+        .trim()
+        .toLowerCase();
+
+    const error =
+        document.getElementById("error");
+
+    /*
+       Only Blessing can open the surprise
+       by entering her name.
+    */
+
+    if (
+        name === "blessing" ||
+        name === "blessing nkire"
+    ) {
+
+        document
+        .getElementById("welcome")
+        .style.display = "none";
+
+        document
+        .getElementById("love")
+        .style.display = "flex";
+
+        createHeartExplosion();
+
+    } else {
+
+        error.style.display = "block";
+
+    }
+}
+
+
+/* ================================= */
+/* FLOATING HEART ANIMATION */
+/* ================================= */
+
+function createHeartExplosion() {
+
+    for (let i = 0; i < 35; i++) {
+
+        setTimeout(function () {
+
+            const heart =
+                document.createElement("div");
+
+            heart.className =
+                "floating-heart";
+
+            heart.innerHTML = "❤️";
+
+            heart.style.left =
+                Math.random() * 100 + "vw";
+
+            heart.style.fontSize =
+                (15 + Math.random() * 30) + "px";
+
+            heart.style.animationDuration =
+                (3 + Math.random() * 3) + "s";
+
+            document.body.appendChild(heart);
+
+            setTimeout(function () {
+
+                heart.remove();
+
+            }, 6000);
+
+        }, i * 100);
+
+    }
+
+}
+
+
+/* ================================= */
+/* PRESS ENTER TO OPEN */
+/* ================================= */
+
+document
+.getElementById("name")
+.addEventListener("keydown", function(event) {
+
+    if (event.key === "Enter") {
+
+        openSurprise();
+
+    }
+
+});
+
+</script>
+
+</body>
+  </html>
